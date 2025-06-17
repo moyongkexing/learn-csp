@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSP Level 3 - より安全なnonce + strict-dynamic方式</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        h1 {
+            color: #185a9d;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 2.5em;
+        }
+        
+        .intro-section {
+            background: #e3f9ff;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .intro-section h2 {
+            color: #185a9d;
+            margin-bottom: 15px;
+        }
+        
+        .intro-section p {
+            line-height: 1.8;
+            margin-bottom: 10px;
+        }
+        
+        .csp-header {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: 2px solid #2196f3;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            font-family: 'Courier New', monospace;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .csp-header::before {
+            content: "CSP Level 3";
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            font-size: 0.8em;
+            color: #1976d2;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-weight: bold;
+        }
+        
+        .nonce-display {
+            display: inline-block;
+            background: #4caf50;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin: 0 5px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .demo-section {
+            margin: 30px 0;
+            padding: 25px;
+            border-radius: 15px;
+            position: relative;
+            transition: all 0.3s;
+        }
+        
+        .demo-section:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        
+        .safe {
+            background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+            border: 2px solid #4caf50;
+        }
+        
+        .info {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border: 2px solid #2196f3;
+        }
+        
+        .danger {
+            background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%);
+            border: 2px solid #f44336;
+        }
+        
+        h2 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        h3 {
+            color: #2d3748;
+            margin: 20px 0 10px 0;
+        }
+        
+        .icon {
+            font-size: 1.5em;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            margin: 10px 5px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .console-output {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            min-height: 60px;
+            position: relative;
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .console-output.show {
+            display: block;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        .console-output::before {
+            content: "ブラウザコンソール";
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            background: #1a202c;
+            padding: 0 10px;
+            font-size: 12px;
+            color: #718096;
+        }
+        
+        .console-log {
+            color: #68d391;
+        }
+        
+        .console-error {
+            color: #fc8181;
+        }
+        
+        .console-warn {
+            color: #f6e05e;
+        }
+        
+        .console-info {
+            color: #63b3ed;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .code-block {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        
+        .code-block .comment {
+            color: #78909c;
+        }
+        
+        .code-block .nonce-attr {
+            color: #ffeb3b;
+            font-weight: bold;
+        }
+        
+        .code-block .keyword {
+            color: #ce93d8;
+        }
+        
+        .code-block .string {
+            color: #f48fb1;
+        }
+        
+        .highlight {
+            background: #ffd54f;
+            color: #333;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        
+        .explanation {
+            background: #f7fafc;
+            border-left: 4px solid #185a9d;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        
+        .flow-diagram {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+        
+        .flow-item {
+            text-align: center;
+            margin: 10px;
+        }
+        
+        .flow-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #43cea2 0%, #185a9d 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            color: white;
+            margin: 0 auto 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        
+        .dynamic-demo {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .security-badge {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #4caf50;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .security-badge::before {
+            content: "🔒";
+            font-size: 1.2em;
+        }
+        
+        .attack-result {
+            background: #fff5f5;
+            border: 2px solid #f44336;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .attack-result.show {
+            display: block;
+            animation: shake 0.5s ease-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="security-badge">
+        CSP Level 3 保護中
+    </div>
+    
+    <div class="container">
+        <h1>🚀 CSP Level 3 - 次世代のXSS対策</h1>
+        
+        <div class="intro-section">
+            <h2>🛡️ CSP Level 3の新機能</h2>
+            <p><strong>nonce</strong>（Number used once）と<strong>strict-dynamic</strong>の組み合わせで、より強固なセキュリティを実現します。</p>
+            <p>• <strong>nonce</strong>：毎回異なるランダムな値で、スクリプトの実行を制御</p>
+            <p>• <strong>strict-dynamic</strong>：信頼されたスクリプトから動的に生成されたスクリプトも自動的に信頼</p>
+        </div>
+        
+        <div class="csp-header">
+            <strong>現在のCSP設定（Level 3）：</strong><br>
+            Content-Security-Policy: script-src 'nonce-<span class="nonce-display">r@nd0m$tr1ng</span>' 'strict-dynamic';<br>
+            object-src 'none'; base-uri 'none';
+        </div>
+        
+        <div class="demo-section info">
+            <h2><span class="icon">🎲</span> nonce（ナンス）の仕組み</h2>
+            <p>nonceは「Number used once」の略で、<strong>毎回異なる乱数</strong>です。</p>
+            
+            <div class="flow-diagram">
+                <div class="flow-item">
+                    <div class="flow-icon">1</div>
+                    <strong>サーバー</strong><br>
+                    ランダムなnonceを生成
+                </div>
+                <div class="flow-item">
+                    <div class="flow-icon">2</div>
+                    <strong>HTML</strong><br>
+                    scriptタグにnonce付与
+                </div>
+                <div class="flow-item">
+                    <div class="flow-icon">3</div>
+                    <strong>ブラウザ</strong><br>
+                    nonceが一致するか確認
+                </div>
+            </div>
+            
+            <div class="code-block"><span class="comment">// サーバー側でnonceを生成（Node.js例）</span>
+<span class="keyword">const</span> crypto = <span class="keyword">require</span>(<span class="string">'crypto'</span>);
+<span class="keyword">const</span> nonce = crypto.randomBytes(16).toString(<span class="string">'base64'</span>);
+<span class="comment">// 結果: "r@nd0m$tr1ng" （毎回変わる）</span></div>
+        </div>
+        
+        <div class="demo-section safe">
+            <h2><span class="icon">✅</span> nonceを持つ正当なスクリプト</h2>
+            <div class="code-block">&lt;script <span class="nonce-attr">nonce="r@nd0m$tr1ng"</span>&gt;
+    console.log("nonceが一致したので実行されます");
+    
+    // アプリケーションの正常な処理
+    const userData = { id: 123, name: "山田太郎" };
+    console.log("ユーザーデータ:", userData);
+&lt;/script&gt;</div>
+            <button onclick="demonstrateValidNonce()">nonceありスクリプトを実行</button>
+            <div id="validConsole" class="console-output"></div>
+        </div>
+        
+        <div class="demo-section danger">
+            <h2><span class="icon">❌</span> nonceなし = 実行拒否</h2>
+            <div class="code-block">&lt;script&gt;
+    // 攻撃者が注入しようとするコード（nonceがない）
+    console.log("悪意のあるスクリプト実行");
+    document.cookie;
+&lt;/script&gt;
+
+&lt;script src="https://evil.com/malicious.js"&gt;&lt;/script&gt;</div>
+            <button onclick="demonstrateInvalidScript()">nonceなしスクリプトを実行（失敗）</button>
+            <div id="invalidConsole" class="console-output"></div>
+        </div>
+        
+        <div class="demo-section safe">
+            <h2><span class="icon">⚡</span> strict-dynamicの実際の動作</h2>
+            <p>nonceを持つスクリプトから<strong>動的に生成されたスクリプト</strong>も自動的に信頼されます！</p>
+            
+            <div class="code-block">&lt;script <span class="nonce-attr">nonce="r@nd0m$tr1ng"</span>&gt;
+    console.log("[親] nonceありスクリプトが実行開始");
+    
+    // 実際のアプリケーションでよくある動的スクリプト生成
+    // 例：Google Analytics、広告タグ、サードパーティウィジェットなど
+    const script = document.createElement('script');
+    script.textContent = `
+        console.log("[子] 動的に生成されたスクリプトが実行されました");
+        console.log("[子] nonceなしでもstrict-dynamicにより実行可能");
+        
+        // さらに孫スクリプトを生成（ネストした動的生成）
+        const grandchildScript = document.createElement('script');
+        grandchildScript.textContent = 
+            'console.log("[孫] ネストして生成されたスクリプトも実行可能");';
+        document.body.appendChild(grandchildScript);
+    `;
+    document.body.appendChild(script);
+&lt;/script&gt;</div>
+            
+            <button onclick="demonstrateStrictDynamic()">strict-dynamicの動作を確認</button>
+            <div id="dynamicConsole" class="console-output"></div>
+            
+            <div class="explanation" style="margin-top: 20px;">
+                <h4>なぜこれが重要なのか？</h4>
+                <p>多くのモダンなWebアプリケーションは、動的にスクリプトを生成します：</p>
+                <ul style="margin-left: 20px;">
+                    <li>Google Analytics などの分析ツール</li>
+                    <li>広告タグやリターゲティングピクセル</li>
+                    <li>チャットウィジェットやカスタマーサポートツール</li>
+                    <li>A/Bテストツール</li>
+                </ul>
+                <p>strict-dynamicがないと、これら全てにnonceを付与する必要があり、実装が困難でした。</p>
+            </div>
+        </div>
+        
+        <div class="demo-section danger">
+            <h2><span class="icon">🛡️</span> JSONPバイパスも防げる！</h2>
+            <p>CSP Level 3では、ホワイトリストは<strong>完全に無視</strong>されます。</p>
+            
+            <div class="code-block">// 攻撃者が試みるJSONPバイパス（CSP Level 2なら成功する）
+&lt;script src="https://trusted-cdn.com/jsonp?callback=console.log('XSS');document.cookie;//"&gt;&lt;/script&gt;
+
+// CSP Level 3では、nonceがないため実行されない</div>
+            <button onclick="demonstrateJSONPBlock()">JSONPバイパスを試す（失敗）</button>
+            <div id="jsonpBlockConsole" class="console-output"></div>
+            
+            <div class="attack-result" id="jsonpComparisonResult">
+                <h4>CSP Level 2 vs Level 3 の比較</h4>
+                <table style="width: 100%; margin-top: 15px;">
+                    <tr>
+                        <th style="text-align: left; padding: 10px; background: #f7fafc;">攻撃手法</th>
+                        <th style="padding: 10px; background: #f7fafc;">Level 2</th>
+                        <th style="padding: 10px; background: #f7fafc;">Level 3</th>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">JSONPバイパス</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #f44336;">❌ 成功</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #4caf50;">✅ ブロック</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">AngularJSバイパス</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #f44336;">❌ 成功</td>
+                        <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: center; color: #4caf50;">✅ ブロック</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 10px;">信頼されたCDNからの攻撃</td>
+                        <td style="padding: 10px; text-align: center; color: #f44336;">❌ 成功</td>
+                        <td style="padding: 10px; text-align: center; color: #4caf50;">✅ ブロック</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="explanation">
+            <h3>🎯 なぜCSP Level 3が優れているのか</h3>
+            <ul style="margin-left: 20px; line-height: 1.8;">
+                <li><strong>予測不可能：</strong>毎回異なるnonceで、攻撃者は推測できない</li>
+                <li><strong>シンプル：</strong>ドメインリストの管理が不要</li>
+                <li><strong>実用的：</strong>strict-dynamicで既存のコードも動作</li>
+                <li><strong>堅牢：</strong>JSONPやAngularJSバイパスも防げる</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        function addConsoleLog(elementId, message, type = 'log') {
+            const console = document.getElementById(elementId);
+            console.classList.add('show');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'console-error' : 
+                             type === 'warn' ? 'console-warn' : 
+                             type === 'info' ? 'console-info' :
+                             'console-log';
+            
+            console.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            console.scrollTop = console.scrollHeight;
+        }
+        
+        function demonstrateValidNonce() {
+            const consoleId = 'validConsole';
+            document.getElementById(consoleId).innerHTML = '';
+            
+            // コードに書かれている通りの出力
+            setTimeout(() => {
+                addConsoleLog(consoleId, 'nonceが一致したので実行されます');
+            }, 300);
+            
+            setTimeout(() => {
+                addConsoleLog(consoleId, 'ユーザーデータ: {id: 123, name: "山田太郎"}');
+            }, 800);
+        }
+        
+        function demonstrateInvalidScript() {
+            const consoleId = 'invalidConsole';
+            document.getElementById(consoleId).innerHTML = '';
+            
+            // CSPエラーメッセージ
+            setTimeout(() => {
+                addConsoleLog(consoleId, 'Refused to execute inline script because it violates the following Content Security Policy directive: "script-src \'nonce-r@nd0m$tr1ng\' \'strict-dynamic\'"', 'error');
+            }, 300);
+            
+            setTimeout(() => {
+                addConsoleLog(consoleId, 'Either the \'unsafe-inline\' keyword, a hash (\'sha256-...\'), or a nonce (\'nonce-...\') is required to enable inline execution.', 'error');
+            }, 700);
+            
+            setTimeout(() => {
+                addConsoleLog(consoleId, 'Refused to load the script \'https://evil.com/malicious.js\' because it violates the following Content Security Policy directive: "script-src \'nonce-r@nd0m$tr1ng\' \'strict-dynamic\'"', 'error');
+            }, 1100);
+        }
+        
+        function demonstrateStrictDynamic() {
+            const consoleId = 'dynamicConsole';
+            document.getElementById(consoleId).innerHTML = '';
+            
+            // コードに書かれている通りの実行順序で出力
+            setTimeout(() => {
+                addConsoleLog(consoleId, '[親] nonceありスクリプトが実行開始');
+            }, 300);
+            
+            setTimeout(() => {
+                addConsoleLog(consoleId, '[子] 動的に生成されたスクリプトが実行されました');
+            }, 800);
+            
+            setTimeout(() => {
+                addConsoleLog(consoleId, '[子] nonceなしでもstrict-dynamicにより実行可能');
+            }, 1200);
+            
+            setTimeout(() => {
+                addConsoleLog(consoleId, '[孫] ネストして生成されたスクリプトも実行可能');
+            }, 1600);
+        }
+        
+        function demonstrateJSONPBlock() {
+            const consoleId = 'jsonpBlockConsole';
+            const comparisonResult = document.getElementById('jsonpComparisonResult');
+            
+            document.getElementById(consoleId).innerHTML = '';
+            
+            // CSPエラー（JSONPがブロックされる）
+            setTimeout(() => {
+                addConsoleLog(consoleId, 'Refused to load the script \'https://trusted-cdn.com/jsonp?callback=console.log(\'XSS\');document.cookie;//\' because it violates the following Content Security Policy directive: "script-src \'nonce-r@nd0m$tr1ng\' \'strict-dynamic\'"', 'error');
+            }, 300);
+            
+            setTimeout(() => {
+                addConsoleLog(consoleId, 'Note that \'strict-dynamic\' is present, so host-based allowlisting is disabled.', 'error');
+            }, 700);
+            
+            setTimeout(() => {
+                addConsoleLog(consoleId, 'strict-dynamicが有効なため、ホワイトリストは無視されます', 'warn');
+            }, 1100);
+            
+            // 比較表を表示
+            setTimeout(() => {
+                comparisonResult.classList.add('show');
+            }, 1500);
+        }
+    </script>
+</body>
+</html>

