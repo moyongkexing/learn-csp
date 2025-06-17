@@ -33,8 +33,6 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
-      - name: Copy main.html to index.html
-        run: cp main.html index.html
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
